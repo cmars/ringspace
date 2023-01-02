@@ -65,7 +65,7 @@ export class SqliteStorage implements Storage {
   public async getActorIdForToken(
     authToken: string
   ): Promise<{doc_id: string; actor_id: string} | null> {
-    const row = await this.db<{actor_id: string; token: string}>('actors')
+    const row = await this.db('actors')
       .select('doc_id', 'actor_id')
       .where({token: authToken})
       .first();
@@ -195,10 +195,7 @@ export class SqliteStorage implements Storage {
     invite_id: string,
     new_actor_id: string
   ): Promise<{token: string; uses_remaining: number}> {
-    return await this.db.transaction<{
-      token: string;
-      uses_remaining: number;
-    }>(async tx => {
+    return await this.db.transaction(async tx => {
       const matchingInvite = await tx('invites')
         .select('uses_remaining', 'roles')
         .where({doc_id, invite_id})
