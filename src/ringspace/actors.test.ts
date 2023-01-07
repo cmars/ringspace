@@ -1,4 +1,4 @@
-import * as actors from './actors';
+import * as actors from 'ringspace/actors';
 
 describe('actor helper functions', () => {
   it('can strip dashes from an actor id', () => {

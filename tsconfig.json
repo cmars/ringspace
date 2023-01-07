@@ -1,12 +1,13 @@
 {
   "extends": "./node_modules/gts/tsconfig-google.json",
   "compilerOptions": {
+    "baseUrl": "./src",
     "rootDir": "./src",
     "outDir": "./build",
     "lib": ["ESNext", "DOM"],
     "target": "esnext",
     "module": "CommonJS",
-    "typeRoots": ["./src/types", "./node_modules/@types"]
+    "typeRoots": ["./src/types", "./node_modules/@types"],
   },
   "include": [
     "src/**/*.ts",

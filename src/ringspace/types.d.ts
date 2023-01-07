@@ -41,6 +41,7 @@ declare namespace Components {
             attributes: {
                 actor_id: ActorId /* uuid */;
                 changes: string /* byte */[];
+                policy_id: PolicyId;
             };
         }
         export interface CreateDocResponse {
@@ -109,6 +110,7 @@ declare namespace Components {
             attributes: GetDocChangesAttributes;
         }
         export type Link = string; // uri
+        export type PolicyId = string;
         export type ResourceId = string; // uuid
         export interface SelfLinks {
             self: Link /* uri */;

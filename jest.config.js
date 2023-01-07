@@ -3,4 +3,7 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   rootDir: './src',
+  roots: ['ringspace', 'testutil'],
+  moduleDirectories: ['node_modules', '<rootDir>'],
+  modulePaths: ['node_modules', '<rootDir>/src'],
 };

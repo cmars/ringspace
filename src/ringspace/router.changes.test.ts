@@ -8,15 +8,18 @@ import {v4} from 'uuid';
 
 import * as automerge from '@automerge/automerge';
 
-import {Controller} from './controller';
-import {router} from './router';
-import {SqliteStorage} from './storage';
-import {toAutomerge} from './actors';
+import {Controller} from 'ringspace/controller';
+import {router} from 'ringspace/router';
+import {SqliteDB} from 'ringspace/storage/db';
+import {toAutomerge} from 'ringspace/actors';
+import {PolicyStore} from 'ringspace/storage/policy';
+import {testPolicyStore} from 'testutil/policy';
 
 describe('changes', () => {
   let app: express.Application;
   let server: http.Server;
-  let storage: SqliteStorage;
+  let db: SqliteDB;
+  let policyStore: PolicyStore;
   let actor_id: string;
   let doc: automerge.Doc<any>;
   let doc_id: string;
@@ -24,9 +27,10 @@ describe('changes', () => {
 
   beforeEach(async () => {
     app = express();
-    storage = new SqliteStorage(':memory:');
-    await storage.init();
-    const controller = new Controller(storage);
+    db = new SqliteDB(':memory:');
+    policyStore = await testPolicyStore();
+    await db.init();
+    const controller = new Controller(db, policyStore);
     const r = router(controller);
     app.use(r);
     server = app.listen(0);
@@ -56,6 +60,7 @@ describe('changes', () => {
           attributes: {
             actor_id: actor_id,
             changes: changes,
+            policy_id: 'allow-all',
           },
         },
       })
@@ -71,7 +76,7 @@ describe('changes', () => {
 
   afterEach(async () => {
     server.close();
-    await storage.close();
+    await db.close();
   });
 
   it('can append changes to a doc', async () => {

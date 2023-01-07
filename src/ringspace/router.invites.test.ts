@@ -8,15 +8,18 @@ import {v4} from 'uuid';
 
 import * as automerge from '@automerge/automerge';
 
-import {Controller} from './controller';
-import {router} from './router';
-import {SqliteStorage} from './storage';
-import {toAutomerge} from './actors';
+import {toAutomerge} from 'ringspace/actors';
+import {Controller} from 'ringspace/controller';
+import {router} from 'ringspace/router';
+import {SqliteDB} from 'ringspace/storage/db';
+import {PolicyStore} from 'ringspace/storage/policy';
+import {testPolicyStore} from 'testutil/policy';
 
 describe('create invites', () => {
   let app: express.Application;
   let server: http.Server;
-  let storage: SqliteStorage;
+  let db: SqliteDB;
+  let policyStore: PolicyStore;
   let adminActorId: string;
   let doc: automerge.Doc<any>;
   let doc_id: string;
@@ -24,9 +27,11 @@ describe('create invites', () => {
 
   beforeEach(async () => {
     app = express();
-    storage = new SqliteStorage(':memory:');
-    await storage.init();
-    const controller = new Controller(storage);
+    db = new SqliteDB(':memory:');
+    await db.init();
+    policyStore = await testPolicyStore();
+    await db.init();
+    const controller = new Controller(db, policyStore);
     const r = router(controller);
     app.use(r);
     server = app.listen(0);
@@ -56,6 +61,7 @@ describe('create invites', () => {
           attributes: {
             actor_id: adminActorId,
             changes: changes,
+            policy_id: 'allow-all',
           },
         },
       })
@@ -70,7 +76,7 @@ describe('create invites', () => {
 
   afterEach(async () => {
     server.close();
-    await storage.close();
+    await db.close();
   });
 
   it('can create an invite to collaborate on a doc', async () => {
@@ -198,6 +204,7 @@ describe('create invites', () => {
           attributes: {
             actor_id: adminActorId,
             changes: changes,
+            policy_id: 'allow-all',
           },
         },
       })
