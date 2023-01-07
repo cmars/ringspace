@@ -181,6 +181,8 @@ components:
     ActorId:
       type: string
       format: uuid
+    PolicyId:
+      type: string
 
     # Creating document collaborations
     CreateDocRequest:
@@ -198,7 +200,7 @@ components:
           enum: ['docs']
         attributes:
           type: object
-          required: [actor_id, changes]
+          required: [actor_id, changes, policy_id]
           properties:
             actor_id:
               $ref: '#/components/schemas/ActorId'
@@ -207,6 +209,8 @@ components:
               items:
                 type: string
                 format: byte
+            policy_id:
+              $ref: '#/components/schemas/PolicyId'
     CreateDocResponse:
       type: object
       required: [data, links]

@@ -8,21 +8,26 @@ import {v4} from 'uuid';
 
 import * as automerge from '@automerge/automerge';
 
-import {Controller} from './controller';
-import {router} from './router';
-import {SqliteStorage} from './storage';
-import {toAutomerge} from './actors';
+import {Controller} from 'ringspace/controller';
+import {router} from 'ringspace/router';
+import {SqliteDB} from 'ringspace/storage/db';
+import {PolicyStore} from 'ringspace/storage/policy';
+import {toAutomerge} from 'ringspace/actors';
+
+import {testPolicyStore} from 'testutil/policy';
 
 describe('create doc collaboration', () => {
   let app: express.Application;
   let server: http.Server;
-  let storage: SqliteStorage;
+  let db: SqliteDB;
+  let policyStore: PolicyStore;
 
   beforeEach(async () => {
     app = express();
-    storage = new SqliteStorage(':memory:');
-    await storage.init();
-    const controller = new Controller(storage);
+    db = new SqliteDB(':memory:');
+    await db.init();
+    policyStore = await testPolicyStore();
+    const controller = new Controller(db, policyStore);
     const r = router(controller);
     app.use(r);
     server = app.listen(0);
@@ -30,7 +35,7 @@ describe('create doc collaboration', () => {
 
   afterEach(async () => {
     server.close();
-    await storage.close();
+    await db.close();
   });
 
   it('can create a doc collaboration', async () => {
@@ -58,6 +63,7 @@ describe('create doc collaboration', () => {
           attributes: {
             actor_id: actor_id,
             changes: changes,
+            policy_id: 'allow-all',
           },
         },
       })
@@ -77,7 +83,7 @@ describe('create doc collaboration', () => {
       })
     );
 
-    expect(await storage.db('docs').count()).toEqual([{'count(*)': 1}]);
+    expect(await db.db('docs').count()).toEqual([{'count(*)': 1}]);
   });
 
   it('responds bad request for wrong resource type', async () => {
@@ -89,10 +95,42 @@ describe('create doc collaboration', () => {
           attributes: {
             actor_id: v4(),
             changes: [],
+            policy_id: 'allow-all',
           },
         },
       })
       .expect(400);
+  });
+
+  it('responds not found for missing policy', async () => {
+    await supertest(app)
+      .post('/scod')
+      .send({
+        data: {
+          type: 'scod',
+          attributes: {
+            actor_id: v4(),
+            changes: [],
+          },
+        },
+      })
+      .expect(404);
+  });
+
+  it('responds not found for unknown policy', async () => {
+    await supertest(app)
+      .post('/scod')
+      .send({
+        data: {
+          type: 'scod',
+          attributes: {
+            actor_id: v4(),
+            changes: [],
+            policy_id: 'no-such-policy',
+          },
+        },
+      })
+      .expect(404);
   });
 
   it('responds not found for unsupported route', async () => {
@@ -104,6 +142,7 @@ describe('create doc collaboration', () => {
           attributes: {
             actor_id: v4(),
             changes: [],
+            policy_id: 'allow-all',
           },
         },
       })

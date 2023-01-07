@@ -1,15 +1,24 @@
 import * as express from 'express';
-import {AuthenticatedContext, Context} from './context';
-import {Storage} from './storage';
-import {ForbiddenError, BadRequestError, ServerError} from './errors';
+
+import {AuthenticatedContext, Context} from 'ringspace/context';
+import {DB} from 'ringspace/storage/db';
+import {
+  ForbiddenError,
+  BadRequestError,
+  ServerError,
+  NotFoundError,
+} from 'ringspace/errors';
+import {PolicyStore} from 'ringspace/storage/policy';
 
 export const bearerTokenRegex = /^Bearer\s+(.+)/;
 
 export class Controller {
-  private storage: Storage;
+  private db: DB;
+  private policies: PolicyStore;
 
-  constructor(storage: Storage) {
-    this.storage = storage;
+  constructor(db: DB, policies: PolicyStore) {
+    this.db = db;
+    this.policies = policies;
   }
 
   public async getContext(req: express.Request): Promise<Context> {
@@ -29,7 +38,7 @@ export class Controller {
     }
     const authToken = match[1];
     try {
-      const authActor = await this.storage.getActorIdForToken(authToken);
+      const authActor = await this.db.getActorIdForToken(authToken);
       if (authActor?.actor_id && authActor.doc_id === result.doc_id) {
         result.actor_id = authActor.actor_id;
       } else {
@@ -54,11 +63,16 @@ export class Controller {
     if (body.data.type !== 'docs') {
       throw new BadRequestError(`invalid resource type '${body.data.type}'`);
     }
-    const {doc_id, token, actor_id, nextOffset} = await this.storage.createDoc({
+    const policy_id = body.data.attributes.policy_id;
+    if (!this.policies.getPolicy(policy_id)) {
+      throw new NotFoundError(`policy_id ${policy_id} not found`);
+    }
+    const {doc_id, token, actor_id, nextOffset} = await this.db.createDoc({
       actor_id: body.data.attributes.actor_id,
       changes: body.data.attributes.changes.map(ch =>
         Buffer.from(ch, 'base64')
       ),
+      policy_id: body.data.attributes.policy_id,
     });
     return {
       data: {
@@ -81,7 +95,7 @@ export class Controller {
     body: Components.Schemas.AppendDocChangesRequest
   ): Promise<Components.Schemas.AppendDocChangesResponse> {
     const changesAdded = body.data.attributes.changes.length;
-    const {nextOffset} = await this.storage.appendChanges(
+    const {nextOffset} = await this.db.appendChanges(
       ctx.doc_id,
       ctx.actor_id,
       body.data.attributes.changes.map(ch => Buffer.from(ch, 'base64'))
@@ -98,10 +112,7 @@ export class Controller {
     ctx: AuthenticatedContext,
     offset: number
   ): Promise<Components.Schemas.GetDocChangesResponse> {
-    const {changes, nextOffset} = await this.storage.getChanges(
-      ctx.doc_id,
-      offset
-    );
+    const {changes, nextOffset} = await this.db.getChanges(ctx.doc_id, offset);
     return {
       data: {
         type: 'changes',
@@ -120,7 +131,7 @@ export class Controller {
     ctx: AuthenticatedContext,
     body: Components.Schemas.CreateInviteRequest
   ): Promise<Components.Schemas.CreateInviteResponse> {
-    const invite = await this.storage.createInvite(
+    const invite = await this.db.createInvite(
       ctx.doc_id,
       ctx.actor_id,
       body.data.attributes.roles,
@@ -150,7 +161,7 @@ export class Controller {
     if (!new_actor_id) {
       throw new BadRequestError();
     }
-    const {token, uses_remaining} = await this.storage.consumeInvite(
+    const {token, uses_remaining} = await this.db.consumeInvite(
       ctx.doc_id,
       invite_id,
       new_actor_id

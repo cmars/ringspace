@@ -3,9 +3,9 @@ import * as path from 'path';
 import {knex, Knex} from 'knex';
 import {v4} from 'uuid';
 
-import {NotFoundError} from './errors';
+import {NotFoundError} from 'ringspace/errors';
 
-export interface Storage {
+export interface DB {
   getActorIdForToken(
     authToken: string
   ): Promise<{doc_id: string; actor_id: string} | null>;
@@ -21,7 +21,11 @@ export interface Storage {
     offset: number
   ): Promise<{changes: Buffer[]; nextOffset: number}>;
 
-  createDoc(params: {actor_id: string; changes: Buffer[]}): Promise<{
+  createDoc(params: {
+    actor_id: string;
+    changes: Buffer[];
+    policy_id?: string;
+  }): Promise<{
     doc_id: string;
     actor_id: string;
     token: string;
@@ -47,11 +51,11 @@ export interface Storage {
   ): Promise<{token: string; uses_remaining: number}>;
 }
 
-export class SqliteStorage implements Storage {
+export class SqliteDB implements DB {
   db: Knex;
 
   // TODO: use env var for dbfile
-  constructor(dbfile = path.join(__dirname, '..', 'ringspace.db')) {
+  constructor(dbfile = path.join(__dirname, '..', '..', 'ringspace.db')) {
     const db = knex({
       client: 'sqlite3',
       connection: {
@@ -119,6 +123,7 @@ export class SqliteStorage implements Storage {
   public async createDoc(params: {
     actor_id: string;
     changes: Buffer[];
+    policy_id: string;
   }): Promise<{
     doc_id: string;
     actor_id: string;
@@ -127,6 +132,7 @@ export class SqliteStorage implements Storage {
   }> {
     const docRow = {
       doc_id: v4(),
+      policy_id: params.policy_id,
     };
     const actorRow = {
       doc_id: docRow.doc_id,
@@ -227,6 +233,7 @@ export class SqliteStorage implements Storage {
       await this.db.schema.createTable('docs', table => {
         table.primary(['doc_id']);
         table.uuid('doc_id').notNullable();
+        table.string('policy_id').notNullable();
         // What do we want to say about a doc?
       });
     }
