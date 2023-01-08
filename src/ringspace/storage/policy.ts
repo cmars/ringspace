@@ -36,7 +36,6 @@ export class FilePolicyStore implements PolicyStore {
   async init(): Promise<void> {
     for (const [policy_id, policy_path] of this.files.entries()) {
       const wasmBuf = await fs.readFileSync(policy_path);
-      console.log(policy_id, policy_path, wasmBuf.length);
       const policy = await loadPolicy(wasmBuf);
       this.policies.set(policy_id, policy);
     }
